@@ -1,12 +1,17 @@
 import openSocket from 'socket.io-client';
-const socket = openSocket('http://98.204.46.243:8000');
 
-function sendMessage(message) {
-  socket.emit('sentMessage', message);
+const socket = openSocket('http://10.5.5.99:8000');
+
+function sendMessage(message, userName) {
+  const packet = { message, userName };
+  socket.emit('sentMessage', packet);
 }
-socket.on('message', message => {
-    console.log(message);
-  })
+function askForChatHistory() {
+  socket.emit('historyRequest', '');
+}
+// socket.on('message', (message) => {
+//  console.log(message);
+// });
 
 
-export { sendMessage }
+export { sendMessage, askForChatHistory };

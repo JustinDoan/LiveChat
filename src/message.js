@@ -1,25 +1,28 @@
 import React, { Component } from 'react';
-import logo from './logo.svg';
+import PropTypes from 'prop-types';
 import './App.css';
-import { subscribeToTimer, sendMessage } from './api';
-import openSocket from 'socket.io-client';
 import styled from 'styled-components';
-
-const socket = openSocket('http://98.204.46.243:8000');
-
-
 
 class Message extends Component {
   render() {
+    const { messages } = this.props;
     return (
-      <MessageBox key={this.props.messageID}>
+
+      <MessageBox key={messages.messageID}>
+
         <MessageText>
-          ${this.props.client}: {this.props.message}
+          {messages.message.userName}
+:
+          {' '}
+          {messages.message.message}
         </MessageText>
+
       </MessageBox>
-    )
+
+    );
   }
 }
+
 
 export default Message;
 
@@ -34,9 +37,10 @@ background: #efefef;
     font-size: 1.2rem;
     line-height: 1.3;
     margin: 0 auto 10px;
-    max-width: 400px;
     padding: 5px;
     position: relative;
+    font-size: 16px;
+    width: 50%;
 `;
 const MessageText = styled.div`
 margin-bottom: 10px;
