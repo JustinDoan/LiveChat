@@ -3,30 +3,43 @@ import styled from 'styled-components';
 import './App.css';
 import openSocket from 'socket.io-client';
 import Favicon from 'react-favicon';
+import { instanceOf } from 'prop-types';
 import {
   Grid, Row, Col, FormControl, Button,
 } from 'react-bootstrap';
+import { CookiesProvider, withCookies, Cookies } from 'react-cookie';
+import Modal from 'react-modal';
+import { Scrollbars } from 'react-custom-scrollbars';
 
 import { sendMessage } from './api';
 import Message from './message';
 
 
 const socket = openSocket('http://10.5.5.99:8000');
+// const socket = openSocket('http://localhost:8000');
 const favicon = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAAJOgAACToAYJjBRwAAAAZdEVYdFNvZnR3YXJlAEFkb2JlIEltYWdlUmVhZHlxyWU8AAACE0lEQVQ4T6VTPYvUUBQ9efmazDg7imFxERYLRVYQVlisLGysxc5KrbSwFH+B/Vr5B/wXIlgIFtNZCCsILtj4seskmUkmmSQv8dwkKxt2G/HCmby89865596bMWoG/iNOCHydl5gGGj8LA0sYsEyFs46BDbvGzphPT3U32+gJvPyUwPZsnBuZCEtgVbX7QlEGEOcV/LrC48tue8D4K/B8OsfO5hAps35LaxRVjY4Pk2TLMOCZQgCiYIUXN0bNWSPw+nOChWNh7FnYW2jkvKSJI2vkNyIubZyxgKKocNWocP+K17jDux8F1mn7S1wi1hWWxOoYMtkrKywKjYhluLaBN99zoULNUo3JUCGg6rygdabWRMnKtIClCEoiJzJCRG2KhOQqvkNwwI4VFasmSdG84tMUyPoYal5mrkZEylT+kB1flki4m3FHnBzQZiDgOhQcvRMJSxEnEcs9T27Tg1u+hTDTcNhiyazpRPogojEJKddSgjhwVI15UuDOBbvtgfw8ub6GNGJTSLbYbY6mqUsmLIIWiS6JTNiMJzrM8HR7ItT+h/RsGuC3pZBxR2zK+GyOTsYnwjGb5ucar277LYHRE5B4+P4Q9tiG5jplCavuo7jGMd+9OMDNjUF7sYuewNv9BLv7S0zGFn7NcjzY9PBoa607PT0aAbG7+zHEh1mB7XUXWwOFe5dG8Jz+H+e0OFHCvwXwByi5UCvJ5VfIAAAAAElFTkSuQmCC';
 
 class App extends Component {
+  static propTypes = {
+    cookies: instanceOf(Cookies).isRequired,
+  };
+
+
   constructor(props) {
     super(props);
     this.sendMessageToAPI = this.sendMessageToAPI.bind(this);
+    this.closeModal = this.closeModal.bind(this);
+    this.scrollToBottomOnUpdate = this.scrollToBottomOnUpdate.bind(this);
     socket.emit('historyRequest', '');
   }
-
 
   state = {
     userInput: '',
     userName: '',
     messages: [],
     faviconAlertAmount: 0,
+    modalIsOpen: false,
+    scrollMessageAmount: 0,
   };
 
   componentWillMount() {
@@ -34,13 +47,31 @@ class App extends Component {
   }
 
   componentDidMount() {
+    const { cookies } = this.props;
+
+    // need to make this async if possible
     socket.on('message', message => this.setState(prevState => ({
       messages: [...prevState.messages, message],
     }), this.updateFavicon()));
+    const userNameFromCookie = cookies.get('username');
+    this.setState({
+      userName: userNameFromCookie,
+    });
+    if (typeof userNameFromCookie === 'undefined') {
+      this.setState({
+        modalIsOpen: true,
+      });
+    }
   }
 
   componentDidUpdate() {
-    this.scrollToBottomOnUpdate();
+    const { messages, scrollMessageAmount } = this.state;
+    if (messages.length > scrollMessageAmount) {
+      this.setState({
+        scrollMessageAmount: (scrollMessageAmount + 1),
+      });
+      this.scrollToBottomOnUpdate();
+    }
   }
 
   updateInput = (event) => {
@@ -56,8 +87,10 @@ class App extends Component {
   }
 
   scrollToBottomOnUpdate = () => {
-    if ((this.messageContainer.scrollHeight - this.messageContainer.scrollTop) < 1500) {
-      this.messagesEnd.scrollIntoView({ behavior: 'smooth' });
+    // this.this.scrollBar.scrollIntoView({ behavior: 'smooth' });
+    if (this.scrollBar.getScrollHeight() - this.scrollBar.getScrollTop() < 1500) {
+      // We have new messages that haven't been viewed and we're close to the bottom
+      this.scrollBar.scrollToBottom();
     }
   }
 
@@ -89,74 +122,141 @@ class App extends Component {
     });
   }
 
+
+  closeModal() {
+    // Once the user closes the window, we take whatever our username is,
+    // and store it in our cookie.
+    const { userName } = this.state;
+    const { cookies } = this.props;
+    cookies.set('username', userName, { path: '/' });
+    this.setState({
+      modalIsOpen: false,
+      needUserName: false,
+    });
+  }
+
   // TODO Add timestamp on messages, and show when someone is typing (may be difficult)
 
+
   render() {
-    // console.log(this.state.messages)
     const {
-      messages, userName, userInput, faviconAlertAmount,
+      messages, userName, userInput, faviconAlertAmount, modalIsOpen,
     } = this.state;
-    const messageLayout = messages.map(message => <Message key={message.messageID} messages={message} />);
+    const messageLayout = messages.map(message => <Message key={message.messageID} messages={message} owner={userName === message.name} scroll={this.scrollToBottomOnUpdate} />);
     return (
-      <div className="App">
-        <Favicon url={favicon} alertCount={faviconAlertAmount} />
-        <Grid fluid>
-          <Row>
-            <Col xs={3}>
-
-                    Name:
-              <FormControl type="text" value={userName} onChange={this.updateUsernameInput} />
-              <br />
-
-            </Col>
-            <Col xs={9}>
-              <Messenger ref={(el) => { this.messageContainer = el; }}>
-                {messageLayout}
-                <div ref={(el) => { this.messagesEnd = el; }} />
-              </Messenger>
-            </Col>
-          </Row>
-          <form>
+      <CookiesProvider>
+        <div className="App">
+          <Favicon url={favicon} alertCount={faviconAlertAmount} />
+          <Grid fluid>
             <Row>
-              <Col xs={3} />
-              <Col xs={9}>
-                <EntryBox>
-                  <MessageInput type="text" value={userInput} onChange={this.updateInput} />
-                </EntryBox>
-              </Col>
-            </Row>
-            <Row>
-              <Col xs={3} />
-              <Col xs={9}>
+              <Col xs={2} />
+              <Col xs={8}>
+                <Messenger ref={(el) => { this.messageContainer = el; }}>
 
-                <Button type="submit" onClick={this.sendMessageToAPI}>Send Message</Button>
+                  <Scrollbars autoHide ref={(el) => { this.scrollBar = el; }}>
+                    <Grid fluid>
+                      {messageLayout}
+                    </Grid>
+                  </Scrollbars>
+
+                </Messenger>
 
 
               </Col>
+              <Col xs={2} />
             </Row>
-          </form>
-        </Grid>
-      </div>
+
+            <Row>
+              <Col xs={2} />
+              <Col xs={8}>
+                <form>
+                  <EntryBox>
+                    <MessageInput type="text" value={userInput} onChange={this.updateInput} />
+                    <SubmitButton type="submit" onClick={this.sendMessageToAPI}><Arrow>→</Arrow></SubmitButton>
+                  </EntryBox>
+
+                </form>
+              </Col>
+              <Col xs={2} />
+            </Row>
+            <Row>
+              <Col xs={2} />
+              <Col xs={8} />
+              <Col xs={2} />
+            </Row>
+
+          </Grid>
+          <Modal
+            isOpen={modalIsOpen}
+            onRequestClose={this.closeModal}
+            contentLabel="Enter Username"
+
+          >
+            <ModalText>
+              <div>
+                {' '}
+Please Enter a Username
+                <br />
+                <input typed="text" value={userName} onChange={this.updateUsernameInput} />
+                <br />
+                <Button type="submit" onClick={this.closeModal}>Submit Name</Button>
+              </div>
+
+            </ModalText>
+
+          </Modal>
+        </div>
+      </CookiesProvider>
+
     );
   }
 }
 
-export default App;
+export default withCookies(App);
+
+const ModalText = styled.div`
+  display: flex;
+  justify-content: center;
+  align-items: center;
+`;
+
+const Arrow = styled.div`
+margin-top: -13px;
+`;
+
+const SubmitButton = styled.button`
+font-weight: bold;
+background-color: rgb(70, 154, 232);
+font-size: 32px;
+width: 15%;
+color: white;
+border: none;
+text-align: center;
+
+`;
 const Messenger = styled.div`
- height: 80vh;
+display: block;
+justify-content: center;
+height: 80vh;
   margin: auto;
   box-shadow: 0px 0px 32px 0px rgba(0,0,0,0.75);
   text-align: center
-  overflow: auto;
+  overflow: hidden;
   margin-top: 10px;
+  border-radius: 10px;
+  padding 3px;
+  background-color: #e9e5e5;
  `;
-const EntryBox = styled.div``;
-// position: absolute;
-// bottom: 5px;
-//  margin: auto;
-//
-//  width: 100%;
-// `;
+const EntryBox = styled.div`
+height: 50px
+border-radius: 10px;
+padding 10px;
+background-color: #e9e5e5;
+box-shadow: 0px 0px 32px 0px rgba(0,0,0,0.75);
+margin-top: 40px;
+display: flex;
+   flex-direction: row;
+`;
 const MessageInput = styled.input`
 padding: 0;
 height: 30px;
@@ -167,8 +267,9 @@ border: 1px solid #cdcdcd;
 border-color: rgba(0, 0, 0, .15);
 background-color: white;
 font-size: 16px;
-margin-top: 25px;
-width: 65%;
+float: left;
+
+width: 85%;
 
 `;
 const NameInput = styled.input`
