@@ -15,9 +15,10 @@ import { sendMessage } from './api';
 import Message from './message';
 
 
-const socket = openSocket('http://10.5.5.99:8000');
-// const socket = openSocket('http://localhost:8000');
+// const socket = openSocket('http://10.5.5.99:8000');
+const socket = openSocket('http://localhost:8000');
 const favicon = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAAJOgAACToAYJjBRwAAAAZdEVYdFNvZnR3YXJlAEFkb2JlIEltYWdlUmVhZHlxyWU8AAACE0lEQVQ4T6VTPYvUUBQ9efmazDg7imFxERYLRVYQVlisLGysxc5KrbSwFH+B/Vr5B/wXIlgIFtNZCCsILtj4seskmUkmmSQv8dwkKxt2G/HCmby89865596bMWoG/iNOCHydl5gGGj8LA0sYsEyFs46BDbvGzphPT3U32+gJvPyUwPZsnBuZCEtgVbX7QlEGEOcV/LrC48tue8D4K/B8OsfO5hAps35LaxRVjY4Pk2TLMOCZQgCiYIUXN0bNWSPw+nOChWNh7FnYW2jkvKSJI2vkNyIubZyxgKKocNWocP+K17jDux8F1mn7S1wi1hWWxOoYMtkrKywKjYhluLaBN99zoULNUo3JUCGg6rygdabWRMnKtIClCEoiJzJCRG2KhOQqvkNwwI4VFasmSdG84tMUyPoYal5mrkZEylT+kB1flki4m3FHnBzQZiDgOhQcvRMJSxEnEcs9T27Tg1u+hTDTcNhiyazpRPogojEJKddSgjhwVI15UuDOBbvtgfw8ub6GNGJTSLbYbY6mqUsmLIIWiS6JTNiMJzrM8HR7ItT+h/RsGuC3pZBxR2zK+GyOTsYnwjGb5ucar277LYHRE5B4+P4Q9tiG5jplCavuo7jGMd+9OMDNjUF7sYuewNv9BLv7S0zGFn7NcjzY9PBoa607PT0aAbG7+zHEh1mB7XUXWwOFe5dG8Jz+H+e0OFHCvwXwByi5UCvJ5VfIAAAAAElFTkSuQmCC';
+
 
 class App extends Component {
   static propTypes = {
@@ -30,7 +31,11 @@ class App extends Component {
     this.sendMessageToAPI = this.sendMessageToAPI.bind(this);
     this.closeModal = this.closeModal.bind(this);
     this.scrollToBottomOnUpdate = this.scrollToBottomOnUpdate.bind(this);
+    this.handleScroll = this.handleScroll.bind(this);
+    this.isTypingHandler = this.isTypingHandler.bind(this);
+    this.debounced = this.debounced.bind(this);
     socket.emit('historyRequest', '');
+    document.body.style.backgroundColor = '#292627';
   }
 
   state = {
@@ -39,7 +44,10 @@ class App extends Component {
     messages: [],
     faviconAlertAmount: 0,
     modalIsOpen: false,
+    // This will be for counting messages that we haven't viewed yet
     scrollMessageAmount: 0,
+    messageComponents: [],
+    isTyping: false,
   };
 
   componentWillMount() {
@@ -49,14 +57,33 @@ class App extends Component {
   componentDidMount() {
     const { cookies } = this.props;
 
-    // need to make this async if possible
+    // Why is this not working like I think it would
     socket.on('message', message => this.setState(prevState => ({
       messages: [...prevState.messages, message],
-    }), this.updateFavicon()));
+    }), this.updateFavicon(), this.createMessageComponent(message)));
+
+    // History Packet will be an object that contains all of the messages.
+    socket.on('historyPacket', (messages) => {
+      messages.forEach(message => this.setState(prevState => ({
+        messages: [...prevState.messages, message],
+      }), this.updateFavicon()));
+      this.createMessageComponents(messages);
+    });
+
+    socket.on('previousMessages', (messages) => {
+      messages.reverse().forEach(message => this.setState(prevState => ({
+        messages: [message, ...prevState.messages],
+      }), this.updateFavicon()));
+      this.createPreviousMessageComponents(messages.reverse());
+    });
+
+
     const userNameFromCookie = cookies.get('username');
+
     this.setState({
       userName: userNameFromCookie,
     });
+
     if (typeof userNameFromCookie === 'undefined') {
       this.setState({
         modalIsOpen: true,
@@ -74,11 +101,15 @@ class App extends Component {
     }
   }
 
+
   updateInput = (event) => {
     this.setState({
       userInput: event.target.value,
+      isTyping: true,
     });
+    this.isTypingHandler();
   }
+
 
   updateUsernameInput = (event) => {
     this.setState({
@@ -92,6 +123,59 @@ class App extends Component {
       // We have new messages that haven't been viewed and we're close to the bottom
       this.scrollBar.scrollToBottom();
     }
+  }
+
+  isTypingHandler() {
+    this.debounced(500, this.setState({ isTyping: false }));
+  }
+
+  debounced(delay, fn) {
+    let timerId;
+    return function (...args) {
+      if (timerId) {
+        clearTimeout(timerId);
+      }
+      timerId = setTimeout(() => {
+        fn(...args);
+        timerId = null;
+      }, delay);
+    };
+  }
+
+  createMessageComponent(message) {
+    const { userName } = this.state;
+    const messageLayout = <Message key={message.messageID} messages={message} owner={userName === message.name} />;
+    this.setState(prevState => ({
+      messageComponents: [...prevState.messageComponents, messageLayout],
+    }));
+  }
+
+  createMessageComponents(messages) {
+    const { userName } = this.state;
+    const componentsToAdd = [];
+    messages.forEach((message) => {
+      const messageLayout = <Message key={message.messageID} messages={message} owner={userName === message.name} />;
+      componentsToAdd.push(messageLayout);
+    });
+
+    this.setState(prevState => ({
+      messageComponents: [...prevState.messageComponents, ...componentsToAdd],
+    }));
+    this.scrollBar.scrollToBottom();
+  }
+
+  createPreviousMessageComponents(messages) {
+    const { userName } = this.state;
+    const componentsToAdd = [];
+    messages.forEach((message) => {
+      const messageLayout = <Message key={message.messageID} messages={message} owner={userName === message.name} />;
+      componentsToAdd.push(messageLayout);
+    });
+
+    this.setState(prevState => ({
+      messageComponents: [...componentsToAdd, ...prevState.messageComponents],
+    }));
+    // this.scrollBar.scrollToBottom();
   }
 
   updateFavicon() {
@@ -131,8 +215,14 @@ class App extends Component {
     cookies.set('username', userName, { path: '/' });
     this.setState({
       modalIsOpen: false,
-      needUserName: false,
     });
+  }
+
+  handleScroll() {
+    const { messages } = this.state;
+    if (this.scrollBar.getScrollTop() === 0) {
+      socket.emit('messagesRequest', messages[0].messageID);
+    }
   }
 
   // TODO Add timestamp on messages, and show when someone is typing (may be difficult)
@@ -140,22 +230,23 @@ class App extends Component {
 
   render() {
     const {
-      messages, userName, userInput, faviconAlertAmount, modalIsOpen,
+      userName, userInput, faviconAlertAmount, modalIsOpen, messageComponents,
     } = this.state;
-    const messageLayout = messages.map(message => <Message key={message.messageID} messages={message} owner={userName === message.name} scroll={this.scrollToBottomOnUpdate} />);
+    // const messageLayout = messages.map(message => <Message key={message.messageID} messages={message} owner={userName === message.name} />);
+    console.log('is Typing', this.state.isTyping);
     return (
       <CookiesProvider>
         <div className="App">
           <Favicon url={favicon} alertCount={faviconAlertAmount} />
           <Grid fluid>
             <Row>
-              <Col xs={2} />
-              <Col xs={8}>
+              <Col xs={1} />
+              <Col xs={10}>
                 <Messenger ref={(el) => { this.messageContainer = el; }}>
 
-                  <Scrollbars autoHide ref={(el) => { this.scrollBar = el; }}>
+                  <Scrollbars onScroll={this.handleScroll} autoHide ref={(el) => { this.scrollBar = el; }}>
                     <Grid fluid>
-                      {messageLayout}
+                      {messageComponents}
                     </Grid>
                   </Scrollbars>
 
@@ -163,12 +254,12 @@ class App extends Component {
 
 
               </Col>
-              <Col xs={2} />
+              <Col xs={1} />
             </Row>
 
             <Row>
-              <Col xs={2} />
-              <Col xs={8}>
+              <Col xs={1} />
+              <Col xs={10}>
                 <form>
                   <EntryBox>
                     <MessageInput type="text" value={userInput} onChange={this.updateInput} />
@@ -177,14 +268,8 @@ class App extends Component {
 
                 </form>
               </Col>
-              <Col xs={2} />
+              <Col xs={1} />
             </Row>
-            <Row>
-              <Col xs={2} />
-              <Col xs={8} />
-              <Col xs={2} />
-            </Row>
-
           </Grid>
           <Modal
             isOpen={modalIsOpen}

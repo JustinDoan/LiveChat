@@ -27,6 +27,14 @@ const createMessage = (client, message, name) => ({
   timestamp: getTimestamp(),
 });
 
+// For testing large amounts of messages
+// for (let i = 0; i < 2000; i++) {
+//   messages.push(createMessage('Server', {
+//     message: i,
+//     userName: 'Server',
+//   }, 'Server'));
+//   messageID += 1;
+// }
 
 io.on('connection', (client) => {
   // clients.push(client);
@@ -46,10 +54,25 @@ io.on('connection', (client) => {
   });
   client.on('historyRequest', () => {
     // The client is asking for the history of the chat
-    messages.forEach((message) => {
-      client.emit('message', message);
+    // messages.forEach((message) => {
+    //   client.emit('message', message);
+    //
+    // // console.log('emitted message');
+    // });
 
-    // console.log('emitted message');
-    });
+
+    client.emit('historyPacket', messages.slice(-40));
+    // client.emit('historyPacket', messages);
+  });
+
+  client.on('messagesRequest', (earliestMessageID) => {
+    // A client has requested more messages, we give them 40 at a time
+
+    if (earliestMessageID === 1) {
+      // We return an empty Array
+      client.emit('previousMessages', []);
+    } else {
+      client.emit('previousMessages', messages.slice((earliestMessageID - 40), (earliestMessageID)));
+    }
   });
 });
