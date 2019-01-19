@@ -15,9 +15,36 @@ import { sendMessage } from './api';
 import Message from './message';
 
 
-// const socket = openSocket('http://10.5.5.99:8000');
-const socket = openSocket('http://localhost:8000');
+const socket = openSocket('http://10.5.5.99:8000');
+// const socket = openSocket('http://localhost:8000');
 const favicon = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAAJOgAACToAYJjBRwAAAAZdEVYdFNvZnR3YXJlAEFkb2JlIEltYWdlUmVhZHlxyWU8AAACE0lEQVQ4T6VTPYvUUBQ9efmazDg7imFxERYLRVYQVlisLGysxc5KrbSwFH+B/Vr5B/wXIlgIFtNZCCsILtj4seskmUkmmSQv8dwkKxt2G/HCmby89865596bMWoG/iNOCHydl5gGGj8LA0sYsEyFs46BDbvGzphPT3U32+gJvPyUwPZsnBuZCEtgVbX7QlEGEOcV/LrC48tue8D4K/B8OsfO5hAps35LaxRVjY4Pk2TLMOCZQgCiYIUXN0bNWSPw+nOChWNh7FnYW2jkvKSJI2vkNyIubZyxgKKocNWocP+K17jDux8F1mn7S1wi1hWWxOoYMtkrKywKjYhluLaBN99zoULNUo3JUCGg6rygdabWRMnKtIClCEoiJzJCRG2KhOQqvkNwwI4VFasmSdG84tMUyPoYal5mrkZEylT+kB1flki4m3FHnBzQZiDgOhQcvRMJSxEnEcs9T27Tg1u+hTDTcNhiyazpRPogojEJKddSgjhwVI15UuDOBbvtgfw8ub6GNGJTSLbYbY6mqUsmLIIWiS6JTNiMJzrM8HR7ItT+h/RsGuC3pZBxR2zK+GyOTsYnwjGb5ucar277LYHRE5B4+P4Q9tiG5jplCavuo7jGMd+9OMDNjUF7sYuewNv9BLv7S0zGFn7NcjzY9PBoa607PT0aAbG7+zHEh1mB7XUXWwOFe5dG8Jz+H+e0OFHCvwXwByi5UCvJ5VfIAAAAAElFTkSuQmCC';
+const whiteText = {
+  color: 'white',
+};
+
+function addUserTyping(prevState, packet) {
+  const usersTyping = prevState.usersTyping;
+  const updatedUser = {};
+  let removed = false;
+  if (usersTyping.length === 0 && packet.isTyping) {
+    usersTyping.push(packet.userName);
+    return usersTyping;
+  }
+
+  usersTyping.forEach((user, i) => {
+    if (user === packet.userName && packet.isTyping === false) {
+      // we want to remove that user from the array
+      usersTyping.splice(i, 1);
+      removed = true;
+    }
+  });
+
+  if (!removed) {
+    usersTyping.push(packet.userName);
+  }
+
+  return usersTyping;
+}
 
 
 class App extends Component {
@@ -32,8 +59,7 @@ class App extends Component {
     this.closeModal = this.closeModal.bind(this);
     this.scrollToBottomOnUpdate = this.scrollToBottomOnUpdate.bind(this);
     this.handleScroll = this.handleScroll.bind(this);
-    this.isTypingHandler = this.isTypingHandler.bind(this);
-    this.debounced = this.debounced.bind(this);
+    this.updateTyping = this.updateTyping.bind(this);
     socket.emit('historyRequest', '');
     document.body.style.backgroundColor = '#292627';
   }
@@ -48,6 +74,10 @@ class App extends Component {
     scrollMessageAmount: 0,
     messageComponents: [],
     isTyping: false,
+    typingTimer: null,
+    previousTyping: false,
+    usersTyping: [],
+    isTypingComponent: '',
   };
 
   componentWillMount() {
@@ -77,6 +107,14 @@ class App extends Component {
       this.createPreviousMessageComponents(messages.reverse());
     });
 
+    socket.on('userTypingUpdate', (packet) => {
+      // Once we get a packet telling us of a user's change, we update it into our object.
+      this.setState(prevState => ({
+        usersTyping: addUserTyping(prevState, packet),
+      }));
+      this.createIsTypingComponent();
+    });
+
 
     const userNameFromCookie = cookies.get('username');
 
@@ -99,15 +137,38 @@ class App extends Component {
       });
       this.scrollToBottomOnUpdate();
     }
+
+    // We send our typing update when it changes from the previous state to a new one.
+    const { isTyping, previousTyping } = this.state;
+    // console.log('isTyping is ', isTyping, 'previousTyping is', previousTyping);
+    if (isTyping !== previousTyping) {
+      // console.log('Sending Update and Setting previousTyping');
+      this.sendTypingUpdate();
+    }
   }
 
 
   updateInput = (event) => {
+    let { typingTimer } = this.state;
+
     this.setState({
       userInput: event.target.value,
       isTyping: true,
     });
-    this.isTypingHandler();
+    // console.log(this.state.isTyping);
+
+    if (typingTimer !== null) {
+      // console.log('Clearing Timer');
+      clearTimeout(typingTimer);
+    }
+    // console.log('Setting Timer');
+    // socket.emit('isTyping', true);
+    typingTimer = setTimeout(
+      this.updateTyping,
+      1000);
+    this.setState({
+      typingTimer,
+    });
   }
 
 
@@ -125,21 +186,20 @@ class App extends Component {
     }
   }
 
-  isTypingHandler() {
-    this.debounced(500, this.setState({ isTyping: false }));
+
+  sendTypingUpdate() {
+    const { isTyping, userName } = this.state;
+    socket.emit('isTyping', { isTyping, userName });
+    // Since we've changed from our previous state, we update it to the new one, until the next check.
+    this.setState({
+      previousTyping: isTyping,
+    });
   }
 
-  debounced(delay, fn) {
-    let timerId;
-    return function (...args) {
-      if (timerId) {
-        clearTimeout(timerId);
-      }
-      timerId = setTimeout(() => {
-        fn(...args);
-        timerId = null;
-      }, delay);
-    };
+  updateTyping() {
+    this.setState({
+      isTyping: false,
+    });
   }
 
   createMessageComponent(message) {
@@ -176,6 +236,21 @@ class App extends Component {
       messageComponents: [...componentsToAdd, ...prevState.messageComponents],
     }));
     // this.scrollBar.scrollToBottom();
+  }
+
+  createIsTypingComponent() {
+    const { usersTyping } = this.state;
+    let usersTypingString = '';
+    if (usersTyping.length === 1) {
+      usersTypingString = `${usersTyping[0]} is currently typing...`;
+    } else if (usersTyping.length === 2) {
+      usersTypingString = `${usersTyping[0]} and ${usersTyping.length - 1} other is currently typing...`;
+    } else if (usersTyping.length > 2) {
+      usersTypingString = `${usersTyping[0]} and ${usersTyping.length - 1} others are currently typing...`;
+    }
+    this.setState({
+      isTypingComponent: usersTypingString,
+    });
   }
 
   updateFavicon() {
@@ -230,18 +305,16 @@ class App extends Component {
 
   render() {
     const {
-      userName, userInput, faviconAlertAmount, modalIsOpen, messageComponents,
+      userName, userInput, faviconAlertAmount, modalIsOpen, messageComponents, isTypingComponent,
     } = this.state;
-    // const messageLayout = messages.map(message => <Message key={message.messageID} messages={message} owner={userName === message.name} />);
-    console.log('is Typing', this.state.isTyping);
     return (
       <CookiesProvider>
         <div className="App">
           <Favicon url={favicon} alertCount={faviconAlertAmount} />
           <Grid fluid>
             <Row>
-              <Col xs={1} />
-              <Col xs={10}>
+              <Col xs={0} md={1} lg={2} />
+              <Col xs={12} md={10} lg={8}>
                 <Messenger ref={(el) => { this.messageContainer = el; }}>
 
                   <Scrollbars onScroll={this.handleScroll} autoHide ref={(el) => { this.scrollBar = el; }}>
@@ -254,12 +327,17 @@ class App extends Component {
 
 
               </Col>
-              <Col xs={1} />
+              <Col xs={0} md={1} lg={2} />
             </Row>
 
             <Row>
-              <Col xs={1} />
-              <Col xs={10}>
+              <Col xs={0} md={1} lg={2} />
+              <Col xs={12} md={10} lg={8}>
+                <span style={whiteText}>
+                  {isTypingComponent}
+                </span>
+
+                <br />
                 <form>
                   <EntryBox>
                     <MessageInput type="text" value={userInput} onChange={this.updateInput} />
@@ -268,7 +346,7 @@ class App extends Component {
 
                 </form>
               </Col>
-              <Col xs={1} />
+              <Col xs={0} md={1} lg={2} />
             </Row>
           </Grid>
           <Modal

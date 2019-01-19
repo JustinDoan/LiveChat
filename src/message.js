@@ -6,6 +6,7 @@ import {
   Row, Col,
 } from 'react-bootstrap';
 import toMaterialStyle from 'material-color-hash';
+import { Twemoji } from 'react-emoji-render';
 
 
 class Message extends Component {
@@ -33,7 +34,7 @@ class Message extends Component {
             <Row>
               <Col>
                 <MessageText fluid owner={owner}>
-                  {messages.message.message}
+                  <Twemoji svg text={messages.message.message} onlyEmojiClassName="makeEmojisLarge" />
                 </MessageText>
               </Col>
             </Row>

@@ -12,7 +12,9 @@ class ModalForm extends Component {
   render() {
     return (
       <Grid>
-        <Row />
+        <Row>
+        The Form for the modal that pops up will go here.
+        </Row>
       </Grid>
     );
   }

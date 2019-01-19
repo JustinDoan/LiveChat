@@ -75,4 +75,14 @@ io.on('connection', (client) => {
       client.emit('previousMessages', messages.slice((earliestMessageID - 40), (earliestMessageID)));
     }
   });
+
+  client.on('isTyping', (packet) => {
+    // Will eventually have to handle users closing the window before the update that they're not typing comes in.
+    // console.log(packet.userName, ' is typing? ', packet.isTyping);
+
+    // Ideally I'm making user obejcts and storing all of this locally at which point i can send on updates and broadcast.
+    // This will also fix the issue where users that disconnect before the update is sent will fail.
+    // console.log(packet);
+    client.broadcast.emit('userTypingUpdate', packet);
+  });
 });

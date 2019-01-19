@@ -1,13 +1,13 @@
 import React from 'react';
-import { shallow, configure } from 'enzyme';
+import { shallow, configure, mount } from 'enzyme';
 import Adapter from 'enzyme-adapter-react-16';
 import App from './App';
 import Message from './message';
 
 configure({ adapter: new Adapter() });
 
-describe('Message', () => {
-  it('Renders Correctly', () => {
+describe('Message Component', () => {
+  it('Message Component Rendering', () => {
     // Create Test Data for Message
 
     const TestMessage = {
@@ -23,11 +23,10 @@ describe('Message', () => {
 
     const message = shallow(<Message messages={TestMessage} owner />);
     expect(message).toMatchSnapshot();
+    expect(message.text().toEqual('Test-Message'));
   });
-});
 
-describe('Main App', () => {
-  it('Renders Correctly', () => {
+  it('Main App Rendering', () => {
     const app = shallow(<App />);
     expect(app).toMatchSnapshot();
   });
