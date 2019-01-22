@@ -10,6 +10,7 @@ import {
 import { CookiesProvider, withCookies, Cookies } from 'react-cookie';
 import Modal from 'react-modal';
 import { Scrollbars } from 'react-custom-scrollbars';
+import { Spring, config, Trail } from 'react-spring';
 
 import { sendMessage } from './api';
 import Message from './message';
@@ -204,7 +205,16 @@ class App extends Component {
 
   createMessageComponent(message) {
     const { userName } = this.state;
-    const messageLayout = <Message key={message.messageID} messages={message} owner={userName === message.name} />;
+    const messageLayout = (
+      <Spring
+        from={{ transform: 'translate3d(300px, 0px, 0px)', opacity: 0 }}
+        to={{ transform: 'translate3d(0px, 0px, 0px)', opacity: 1 }}
+        config={{ friction: 15 }}
+        key={message.messageID}
+      >
+        {props => <div style={props}><Message key={message.messageID} messages={message} owner={userName === message.name} /></div>}
+      </Spring>
+    );
     this.setState(prevState => ({
       messageComponents: [...prevState.messageComponents, messageLayout],
     }));
@@ -310,20 +320,31 @@ class App extends Component {
     return (
       <CookiesProvider>
         <div className="App">
+
           <Favicon url={favicon} alertCount={faviconAlertAmount} />
           <Grid fluid>
             <Row>
               <Col xs={0} md={1} lg={2} />
               <Col xs={12} md={10} lg={8}>
-                <Messenger ref={(el) => { this.messageContainer = el; }}>
+                <Spring from={{ opacity: 0, marginTop: -1000 }} to={{ opacity: 1, marginTop: 0 }} config={config.slow}>
+                  {styles => (
+                    <Messenger style={styles} ref={(el) => { this.messageContainer = el; }}>
 
-                  <Scrollbars onScroll={this.handleScroll} autoHide ref={(el) => { this.scrollBar = el; }}>
-                    <Grid fluid>
-                      {messageComponents}
-                    </Grid>
-                  </Scrollbars>
+                      <Scrollbars
+                        renderTrackHorizontal={props => <div {...props} className="track-horizontal" style={{ display: 'none' }} />}
+                        renderThumbHorizontal={props => <div {...props} className="thumb-horizontal" style={{ display: 'none' }} />}
+                        onScroll={this.handleScroll}
+                        autoHide
+                        ref={(el) => { this.scrollBar = el; }}
+                      >
+                        <Grid fluid>
+                          {messageComponents}
+                        </Grid>
+                      </Scrollbars>
 
-                </Messenger>
+                    </Messenger>
+                  )}
+                </Spring>
 
 
               </Col>
@@ -333,18 +354,26 @@ class App extends Component {
             <Row>
               <Col xs={0} md={1} lg={2} />
               <Col xs={12} md={10} lg={8}>
-                <span style={whiteText}>
-                  {isTypingComponent}
-                </span>
+                <Spring from={{ opacity: 0, marginTop: -1000 }} to={{ opacity: 1, marginTop: 0 }} config={config.slow}>
+                  {styles => (
+                    <div style={styles}>
+                      {' '}
+                      <span style={whiteText}>
+                        {isTypingComponent}
+                      </span>
 
-                <br />
-                <form>
-                  <EntryBox>
-                    <MessageInput type="text" value={userInput} onChange={this.updateInput} />
-                    <SubmitButton type="submit" onClick={this.sendMessageToAPI}><Arrow>→</Arrow></SubmitButton>
-                  </EntryBox>
+                      <br />
+                      <form>
+                        <EntryBox>
+                          <MessageInput type="text" value={userInput} onChange={this.updateInput} />
+                          <SubmitButton type="submit" onClick={this.sendMessageToAPI}><Arrow>→</Arrow></SubmitButton>
+                        </EntryBox>
 
-                </form>
+                      </form>
+                    </div>
+                  )}
+                </Spring>
+
               </Col>
               <Col xs={0} md={1} lg={2} />
             </Row>

@@ -53,7 +53,7 @@ export default Message;
 
 
 const Timestamp = styled.div`
-font-size:9px;
+font-size:12px;
 float: right;
 bottom: 0;
 `;
@@ -72,7 +72,7 @@ const MessageBox = styled.div`
     margin: 3px auto 10px;
     padding: 3px;
     position: relative;
-    font-size: 16px;
+    font-size: 20px;
     min-width: 35%;
     max-width: 75%;
     float: ${props => (props.owner ? 'right' : 'left')};
