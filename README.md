@@ -1,3 +1,23 @@
+This was a learning project that I completed while picking up how to use React, it uses Websockets to send messages and this project could easily be extended into a full blown chat application with rooms and everything else. If you'd like to go an contribute, go ahead, I'll check this repo often.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 
 ## Available Scripts
