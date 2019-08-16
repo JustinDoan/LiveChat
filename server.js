@@ -37,8 +37,18 @@ const createMessage = (client, message, name) => ({
 // }
 
 io.on('connection', (client) => {
+  //console.log(client.handshake)
+  var room = client.handshake['headers'].referer.split("/").pop();
+
+  client.join(room)
+  console.log('user joined room #'+room);
+
+
+
   // clients.push(client);
   client.on('sentMessage', (message) => {
+    console.log('received', message)
+    console.log(messages)
     // this message is a packet, it's an object with two properties, a message, and a name
     messageID += 1;
     // add identifying information
@@ -46,10 +56,22 @@ io.on('connection', (client) => {
     // .log('Message received from user: ', message);
     // we want to send to all of the clients
     // console.log(createMessage(client, message));
+
+
+    // Objects that contain both room and messages, each specific to each other.
+
+    // Need to check for an object where room matches, then append to that objects messages.
+
+    // the same goes for the fetching of messages.
+
     if (message.message !== '') {
       const messageToSend = createMessage(client.id, message, message.userName);
-      messages.push(messageToSend);
-      io.sockets.emit('message', messageToSend);
+
+      if(messages[room] === undefined){
+        messages.push(room)
+      }
+      messages[room].push(messageToSend);
+      io.to(room).emit('message', messageToSend);
     }
   });
   client.on('historyRequest', () => {
@@ -61,7 +83,7 @@ io.on('connection', (client) => {
     // });
 
 
-    client.emit('historyPacket', messages.slice(-40));
+    client.emit('historyPacket', messages[room].slice(-40));
     // client.emit('historyPacket', messages);
   });
 
@@ -72,7 +94,7 @@ io.on('connection', (client) => {
       // We return an empty Array
       client.emit('previousMessages', []);
     } else {
-      client.emit('previousMessages', messages.slice((earliestMessageID - 40), (earliestMessageID)));
+      client.emit('previousMessages', messages[room].slice((earliestMessageID - 40), (earliestMessageID)));
     }
   });
 

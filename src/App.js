@@ -16,8 +16,8 @@ import { sendMessage } from './api';
 import Message from './message';
 
 
-const socket = openSocket('http://10.5.5.99:8000');
-// const socket = openSocket('http://localhost:8000');
+//const socket = openSocket('http://10.5.5.99:8000');
+const socket = openSocket('http://localhost:8000');
 const favicon = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAAJOgAACToAYJjBRwAAAAZdEVYdFNvZnR3YXJlAEFkb2JlIEltYWdlUmVhZHlxyWU8AAACE0lEQVQ4T6VTPYvUUBQ9efmazDg7imFxERYLRVYQVlisLGysxc5KrbSwFH+B/Vr5B/wXIlgIFtNZCCsILtj4seskmUkmmSQv8dwkKxt2G/HCmby89865596bMWoG/iNOCHydl5gGGj8LA0sYsEyFs46BDbvGzphPT3U32+gJvPyUwPZsnBuZCEtgVbX7QlEGEOcV/LrC48tue8D4K/B8OsfO5hAps35LaxRVjY4Pk2TLMOCZQgCiYIUXN0bNWSPw+nOChWNh7FnYW2jkvKSJI2vkNyIubZyxgKKocNWocP+K17jDux8F1mn7S1wi1hWWxOoYMtkrKywKjYhluLaBN99zoULNUo3JUCGg6rygdabWRMnKtIClCEoiJzJCRG2KhOQqvkNwwI4VFasmSdG84tMUyPoYal5mrkZEylT+kB1flki4m3FHnBzQZiDgOhQcvRMJSxEnEcs9T27Tg1u+hTDTcNhiyazpRPogojEJKddSgjhwVI15UuDOBbvtgfw8ub6GNGJTSLbYbY6mqUsmLIIWiS6JTNiMJzrM8HR7ItT+h/RsGuC3pZBxR2zK+GyOTsYnwjGb5ucar277LYHRE5B4+P4Q9tiG5jplCavuo7jGMd+9OMDNjUF7sYuewNv9BLv7S0zGFn7NcjzY9PBoa607PT0aAbG7+zHEh1mB7XUXWwOFe5dG8Jz+H+e0OFHCvwXwByi5UCvJ5VfIAAAAAElFTkSuQmCC';
 const whiteText = {
   color: 'white',
